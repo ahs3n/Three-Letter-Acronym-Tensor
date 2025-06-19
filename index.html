@@ -1,1 +1,247 @@
-stuff
+<body style="margin:0;overflow:hidden"><canvas style="width:100vw;height:100vh"></canvas>
+    <script>
+        let h, w, d, gl, v, f, p, s, c = document.querySelector('canvas'), r = new Date().getTime();
+        v = `attribute vec3 p;void main(){gl_Position=vec4(p,1);}`;
+        f = `
+precision highp float;
+uniform float iTime;
+uniform vec2 iResolution;
+uniform vec2 iMouse;
+uniform vec3 select;
+
+
+#define flines float(lines)
+#define volumetric
+
+const int lines = 26;
+const float pi = 3.14159;
+float pc = 3.;
+
+mat4 vx, vy, vz;
+
+float dist(int i){    
+    if (i < 6){
+        if(i==0 ) return 0.;
+        if(i==1 ) return 0.;
+        if(i==2 ) return 0.;
+        if(i==3 ) return (select.x)/flines;
+        if(i==4 ) return 1./flines;
+        if(i==5 ) return 1./flines;
+    } else if (i < 12) {
+        if(i==6 ) return -(select.x-1.)/flines;
+        if(i==7 ) return 0.;
+        if(i==8 ) return 0.;
+        if(i==9 ) return (select.x)/flines;
+        if(i==10) return (select.y)/flines;
+        if(i==11) return 1./flines;
+    } else if (i < 18) {
+        if(i==12) return -(select.x-1.)/flines;
+        if(i==13) return -(select.y-1.)/flines;
+        if(i==14) return 0.;
+        if(i==15) return (select.x)/flines;
+        if(i==16) return (select.y)/flines;
+        if(i==17) return (select.z-1.)/flines;
+    } else {
+        if(i==18) return -(select.x-1.)/flines;
+        if(i==19) return -(select.y-1.)/flines;
+        if(i==20) return -(select.z-1.)/flines;
+        if(i==21) return (select.x)/flines;
+        if(i==22) return (select.y)/flines;
+        if(i==23) return (select.z)/flines;
+    }
+}
+
+vec3 normi(int i){
+    if (i < 3){
+        if (i==0) return vec3(-1,0,0);
+        if (i==1) return vec3(0,-1,0);
+        if (i==2) return vec3(0,0,-1);            
+    } else {
+        if (i==3) return vec3(1,0,0);
+        if (i==4) return vec3(0,1,0);
+        if (i==5) return vec3(0,0,1);        
+    }
+}
+
+float planeRay(vec3 ro, vec3 rd, vec3 norm, float d){
+    float a = dot(ro, norm)-d, b = dot(norm, -rd);
+    if (
+        (b < 0. && a > 0.) 
+        //|| (b > 0. && a < 0.) 
+        //|| b == 0. 
+        //|| a == 0.
+    ) return 1e9;
+    return a / b;
+}
+
+float line(vec2 p, vec2 a, vec2 b){
+    vec2 pa = p-a, ba = b-a;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+    return length( pa - ba*h );
+} // iq version https://www.shadertoy.com/view/3tdSDj
+// these optimizations are amazing 👀 */ 
+
+void mainImage( out vec4 O, vec2 U ){
+
+    vec2 r = iResolution.xy;
+    vec2 uv = U/r;
+    vec2 cuv = (2.*U-r)/r.y;
+    vec2 muv = iMouse.xy == vec2(0)?vec2(iTime/5., -.2):(2.*iMouse.xy-r)/r.y;
+    
+    vec2 camM = muv*(pi/2. - 1e-3);
+    vec3 camF = vec3(sin(camM.x)*cos(camM.y), cos(camM.x)*cos(camM.y), sin(camM.y));
+    vec3 camR = normalize(cross(camF, vec3(0,0,1)));
+    vec3 camU = cross(camR, camF);
+    
+    vec3 o = vec3(.5) - 3.*camF;
+
+    mat4 cx = mat4(0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1) - o.x;
+    mat4 cy = mat4(0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1) - o.y;
+    mat4 cz = mat4(0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1) - o.z;
+    vx = camR.x * cx + camR.y * cy + camR.z * cz;
+    vy = camU.x * cx + camU.y * cy + camU.z * cz;
+    vz = (camF.x * cx + camF.y * cy + camF.z * cz)/pc;
+    
+    float d = 1e9;
+    vec3 a,b;
+
+    // Lines
+    for (int z = 0; z <= lines; z+=lines){
+        for (int x = 1; x < lines; x++){
+            float fx = float(x)/flines;
+            float fz = float(z)/flines;
+            a = mix(mix(vec3(vx[0][0], vy[0][0], vz[0][0]), vec3(vx[0][1], vy[0][1], vz[0][1]), fz), mix(vec3(vx[1][0], vy[1][0], vz[1][0]), vec3(vx[1][1], vy[1][1], vz[1][1]), fz), fx);
+            b = mix(mix(vec3(vx[0][2], vy[0][2], vz[0][2]), vec3(vx[0][3], vy[0][3], vz[0][3]), fz), mix(vec3(vx[1][2], vy[1][2], vz[1][2]), vec3(vx[1][3], vy[1][3], vz[1][3]), fz), fx);
+
+            d = min(d, line(cuv, a.xy / a.z, b.xy / b.z));
+
+
+            a = mix(mix(vec3(vx[1][0], vy[1][0], vz[1][0]), vec3(vx[1][1], vy[1][1], vz[1][1]), fz), mix(vec3(vx[1][2], vy[1][2], vz[1][2]), vec3(vx[1][3], vy[1][3], vz[1][3]), fz), fx);
+            b = mix(mix(vec3(vx[0][0], vy[0][0], vz[0][0]), vec3(vx[0][1], vy[0][1], vz[0][1]), fz), mix(vec3(vx[0][2], vy[0][2], vz[0][2]), vec3(vx[0][3], vy[0][3], vz[0][3]), fz), fx);
+
+            d = min(d, line(cuv, a.xy / a.z, b.xy / b.z));
+        }
+    }
+    
+    float x = .1 * exp(-pow(d / (2./r.y), 2.));
+
+    d = 1e9;
+    d = min(d, line(cuv, vec2(vx[0][0], vy[0][0]) / vz[0][0], vec2(vx[0][2], vy[0][2]) / vz[0][2]));
+    d = min(d, line(cuv, vec2(vx[0][2], vy[0][2]) / vz[0][2], vec2(vx[1][2], vy[1][2]) / vz[1][2]));
+    d = min(d, line(cuv, vec2(vx[1][2], vy[1][2]) / vz[1][2], vec2(vx[1][0], vy[1][0]) / vz[1][0]));
+    d = min(d, line(cuv, vec2(vx[1][0], vy[1][0]) / vz[1][0], vec2(vx[0][0], vy[0][0]) / vz[0][0]));
+    
+    d = min(d, line(cuv, vec2(vx[0][1], vy[0][1]) / vz[0][1], vec2(vx[0][3], vy[0][3]) / vz[0][3]));
+    d = min(d, line(cuv, vec2(vx[0][3], vy[0][3]) / vz[0][3], vec2(vx[1][3], vy[1][3]) / vz[1][3]));
+    d = min(d, line(cuv, vec2(vx[1][3], vy[1][3]) / vz[1][3], vec2(vx[1][1], vy[1][1]) / vz[1][1]));
+    d = min(d, line(cuv, vec2(vx[1][1], vy[1][1]) / vz[1][1], vec2(vx[0][1], vy[0][1]) / vz[0][1]));
+    
+    d = min(d, line(cuv, vec2(vx[0][0], vy[0][0]) / vz[0][0], vec2(vx[0][1], vy[0][1]) / vz[0][1]));
+    d = min(d, line(cuv, vec2(vx[0][2], vy[0][2]) / vz[0][2], vec2(vx[0][3], vy[0][3]) / vz[0][3]));
+    d = min(d, line(cuv, vec2(vx[1][2], vy[1][2]) / vz[1][2], vec2(vx[1][3], vy[1][3]) / vz[1][3]));
+    d = min(d, line(cuv, vec2(vx[1][0], vy[1][0]) / vz[1][0], vec2(vx[1][1], vy[1][1]) / vz[1][1]));
+
+    x = mix(x, .8, smoothstep(3./r.y, 0., d));
+    O = vec4(x);    
+    // end of rasterization
+
+
+    // raytracing
+    vec3 norm, dir = camF + camR * cuv.x/pc + camU*cuv.y/pc;
+    float dis,tempT,maxT,minT;
+    vec4 v;
+
+    maxT = 0.; minT = 1e9;
+    for (int q = 0; q < 6; q++){
+        norm = normi(q);
+        dis = dist(q<3?q:q+18);
+        tempT = planeRay(o, dir, norm, dis);
+        if (dot(o, norm)-dis > 0.){
+            maxT = max(maxT, tempT);
+        } else {
+            if (tempT > 0.) minT = min(minT, tempT);
+        }
+    }
+
+    if (minT - maxT > 0.){
+        for (int rgb = 0; rgb < 4; rgb++){
+            maxT = 0.; minT = 1e9;
+            for (int q = 0; q < 6; q++){
+                norm = normi(q);
+                tempT = planeRay(o, dir, norm, dist(rgb*6 + q));
+                if (dot(o, norm)-dist(rgb*6 + q) > 0.){
+                    maxT = max(maxT, tempT);
+                } else {
+                    if (tempT > 0.) minT = min(minT, tempT);
+                }
+            }
+
+            if (minT - maxT > 0.) v[rgb] = minT - maxT;
+        }
+
+        #ifdef volumetric
+        vec4 o = 1.-exp(-(v+v.a*2.)*64.);
+        O = mix(O, o, length(o)/sqrt(3.));
+        #else 
+        if (v != vec4(0)){
+            O *= .5;
+            O += sign(v + v.a);
+        }
+        #endif
+    }
+
+    O = pow(O, vec4(1./2.2));
+    O.a = 1.;
+}
+
+void main(){
+    mainImage(gl_FragColor, gl_FragCoord.xy);
+}
+    `;
+
+        gl = null;
+        if( gl === null) gl = c.getContext( "webgl2" );
+        if( gl === null) gl = c.getContext( "experimental-webgl2" );
+        if( gl === null) gl = c.getContext( "webgl" );
+        if( gl === null) gl = c.getContext( "experimental-webgl" );
+
+        gl.bindBuffer(34962, gl.createBuffer());
+        gl.bufferData(34962, new Float32Array([-3, -1, 3, -1, 0, 2]), 35044);
+        p = gl.createProgram();
+        gl.attachShader(p, k(v, 35633));
+        gl.attachShader(p, k(f, 35632));
+        gl.linkProgram(p);
+        x();
+        function x() {
+            if (w != c.clientWidth || h != c.clientHeight) {
+                w = c.clientWidth;
+                h = c.clientHeight;
+                c.width = w;
+                c.height = h;
+                gl.viewport(0, 0, w, h)
+            } gl.useProgram(p);
+            let time_ms = (new Date().getTime() - r);
+            gl.uniform1f(gl.getUniformLocation(p, 'iTime'), time_ms / 1e3);
+            gl.uniform2f(gl.getUniformLocation(p, 'iResolution'), w, h);
+            gl.uniform2f(gl.getUniformLocation(p, 'iMouse'), 
+                time_ms*w / 2 / 1e3, 
+                h/2
+            );
+            gl.uniform3f(gl.getUniformLocation(p, 'select'), 
+                1. + Math.sin(time_ms / 1e3 + 0)*12.5 + 12.5, 
+                1. + Math.sin(time_ms / 1e3 + 1)*12.5 + 12.5, 
+                1. + Math.sin(time_ms / 1e3 + 2)*12.5 + 12.5
+            );
+            gl.vertexAttribPointer(s, 2, 5126, 0, 0, 0);
+            gl.enableVertexAttribArray(s);
+            gl.drawArrays(4, 0, 3);
+            requestAnimationFrame(x)
+        } 
+        function k(q, e) {
+            d = gl.createShader(e);
+            gl.shaderSource(d, q);
+            gl.compileShader(d);
+            return d
+        }
+    </script>
+</body>
