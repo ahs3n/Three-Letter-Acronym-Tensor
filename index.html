@@ -167,20 +167,7 @@ void mainImage( out vec4 O, vec2 U ){
     O = vec4(x);    
     // end of rasterization
 
-
     // raytracing
-    maxT = 0.; minT = 1e9;
-    for (int q = 0; q < 6; q++){
-        norm = normi(q);
-        dis = dist(q<3?q:q+18);
-        tempT = planeRay(o, dir, norm, dis);
-        if (dot(o, norm)-dis > 0.){
-            maxT = max(maxT, tempT);
-        } else {
-            if (tempT > 0.) minT = min(minT, tempT);
-        }
-    }
-    
     if (minT - maxT > 0.){
         for (int rgb = 0; rgb < 4; rgb++){
             maxT = 0.; minT = 1e9;
