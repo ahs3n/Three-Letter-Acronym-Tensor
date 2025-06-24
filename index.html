@@ -93,7 +93,8 @@ void mainImage( out vec4 O, vec2 U ){
     vec3 camR = normalize(cross(camF, vec3(0,0,1)));
     vec3 camU = cross(camR, camF);
     
-    vec3 o = vec3(.5) - 3.*camF;
+    float orbitDist = 3.;//sin(iTime)+2.;
+    vec3 o = vec3(.5) - orbitDist*camF;
 
     mat4 cx = mat4(0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1) - o.x;
     mat4 cy = mat4(0,0,1,1,0,0,1,1,0,0,1,1,0,0,1,1) - o.y;
@@ -105,7 +106,44 @@ void mainImage( out vec4 O, vec2 U ){
     float d = 1e9;
     vec3 a,b;
 
+    vec3 norm, dir = camF + camR * cuv.x/pc + camU*cuv.y/pc;
+    float dis,tempT,maxT,minT;
+    vec4 v;
+
+    maxT = 0.; minT = 1e9;
+    for (int q = 0; q < 6; q++){
+        norm = normi(q);
+        dis = q<3?0.:1.;
+        tempT = planeRay(o, dir, norm, dis);
+        if (dot(o, norm)-dis > 0.){
+            maxT = max(maxT, tempT);
+        } else {
+            if (tempT > 0.) minT = min(minT, tempT);
+        }
+    }
+
     // Lines
+    d = 1e9;
+    d = min(d, line(cuv, vec2(vx[0][0], vy[0][0]) / vz[0][0], vec2(vx[0][2], vy[0][2]) / vz[0][2]));
+    d = min(d, line(cuv, vec2(vx[0][2], vy[0][2]) / vz[0][2], vec2(vx[1][2], vy[1][2]) / vz[1][2]));
+    d = min(d, line(cuv, vec2(vx[1][2], vy[1][2]) / vz[1][2], vec2(vx[1][0], vy[1][0]) / vz[1][0]));
+    d = min(d, line(cuv, vec2(vx[1][0], vy[1][0]) / vz[1][0], vec2(vx[0][0], vy[0][0]) / vz[0][0]));
+    
+    d = min(d, line(cuv, vec2(vx[0][1], vy[0][1]) / vz[0][1], vec2(vx[0][3], vy[0][3]) / vz[0][3]));
+    d = min(d, line(cuv, vec2(vx[0][3], vy[0][3]) / vz[0][3], vec2(vx[1][3], vy[1][3]) / vz[1][3]));
+    d = min(d, line(cuv, vec2(vx[1][3], vy[1][3]) / vz[1][3], vec2(vx[1][1], vy[1][1]) / vz[1][1]));
+    d = min(d, line(cuv, vec2(vx[1][1], vy[1][1]) / vz[1][1], vec2(vx[0][1], vy[0][1]) / vz[0][1]));
+    
+    d = min(d, line(cuv, vec2(vx[0][0], vy[0][0]) / vz[0][0], vec2(vx[0][1], vy[0][1]) / vz[0][1]));
+    d = min(d, line(cuv, vec2(vx[0][2], vy[0][2]) / vz[0][2], vec2(vx[0][3], vy[0][3]) / vz[0][3]));
+    d = min(d, line(cuv, vec2(vx[1][2], vy[1][2]) / vz[1][2], vec2(vx[1][3], vy[1][3]) / vz[1][3]));
+    d = min(d, line(cuv, vec2(vx[1][0], vy[1][0]) / vz[1][0], vec2(vx[1][1], vy[1][1]) / vz[1][1]));
+
+    float x = .8*smoothstep(3./r.y, 0., d);
+    
+    O = vec4(0,0,0,1);
+    if (minT - maxT < 0. && d > 8./r.y) return;
+    
     for (int z = 0; z <= lines; z+=lines){
         for (int x = 1; x < lines; x++){
             float fx = float(x)/flines;
@@ -123,34 +161,14 @@ void mainImage( out vec4 O, vec2 U ){
         }
     }
     
-    float x = .1 * exp(-pow(d / (2./r.y), 2.));
-
-    d = 1e9;
-    d = min(d, line(cuv, vec2(vx[0][0], vy[0][0]) / vz[0][0], vec2(vx[0][2], vy[0][2]) / vz[0][2]));
-    d = min(d, line(cuv, vec2(vx[0][2], vy[0][2]) / vz[0][2], vec2(vx[1][2], vy[1][2]) / vz[1][2]));
-    d = min(d, line(cuv, vec2(vx[1][2], vy[1][2]) / vz[1][2], vec2(vx[1][0], vy[1][0]) / vz[1][0]));
-    d = min(d, line(cuv, vec2(vx[1][0], vy[1][0]) / vz[1][0], vec2(vx[0][0], vy[0][0]) / vz[0][0]));
+    //x = .1 * exp(-pow(d / (2./r.y), 2.));
     
-    d = min(d, line(cuv, vec2(vx[0][1], vy[0][1]) / vz[0][1], vec2(vx[0][3], vy[0][3]) / vz[0][3]));
-    d = min(d, line(cuv, vec2(vx[0][3], vy[0][3]) / vz[0][3], vec2(vx[1][3], vy[1][3]) / vz[1][3]));
-    d = min(d, line(cuv, vec2(vx[1][3], vy[1][3]) / vz[1][3], vec2(vx[1][1], vy[1][1]) / vz[1][1]));
-    d = min(d, line(cuv, vec2(vx[1][1], vy[1][1]) / vz[1][1], vec2(vx[0][1], vy[0][1]) / vz[0][1]));
-    
-    d = min(d, line(cuv, vec2(vx[0][0], vy[0][0]) / vz[0][0], vec2(vx[0][1], vy[0][1]) / vz[0][1]));
-    d = min(d, line(cuv, vec2(vx[0][2], vy[0][2]) / vz[0][2], vec2(vx[0][3], vy[0][3]) / vz[0][3]));
-    d = min(d, line(cuv, vec2(vx[1][2], vy[1][2]) / vz[1][2], vec2(vx[1][3], vy[1][3]) / vz[1][3]));
-    d = min(d, line(cuv, vec2(vx[1][0], vy[1][0]) / vz[1][0], vec2(vx[1][1], vy[1][1]) / vz[1][1]));
-
-    x = mix(x, .8, smoothstep(3./r.y, 0., d));
+    x = mix(x, .8, .1*exp(-pow(d / (2./r.y), 2.)));
     O = vec4(x);    
     // end of rasterization
 
 
     // raytracing
-    vec3 norm, dir = camF + camR * cuv.x/pc + camU*cuv.y/pc;
-    float dis,tempT,maxT,minT;
-    vec4 v;
-
     maxT = 0.; minT = 1e9;
     for (int q = 0; q < 6; q++){
         norm = normi(q);
@@ -162,7 +180,7 @@ void mainImage( out vec4 O, vec2 U ){
             if (tempT > 0.) minT = min(minT, tempT);
         }
     }
-
+    
     if (minT - maxT > 0.){
         for (int rgb = 0; rgb < 4; rgb++){
             maxT = 0.; minT = 1e9;
@@ -189,7 +207,7 @@ void mainImage( out vec4 O, vec2 U ){
         }
         #endif
     }
-
+    
     O = pow(O, vec4(1./2.2));
     O.a = 1.;
 }
