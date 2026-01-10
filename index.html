@@ -287,7 +287,7 @@ void main(){
                 gl.uniform1f(gl.getUniformLocation(p, 'iTime'), time_ms / 1e3);
                 gl.uniform2f(gl.getUniformLocation(p, 'iResolution'), w, h);
                 gl.uniform2f(gl.getUniformLocation(p, 'iMouse'), 
-                    time_ms*w / 2e3, 
+                    time_ms*w / 1e3 / 10, 
                     h/2
                 );
                 gl.uniform3f(gl.getUniformLocation(p, 'select'), 
@@ -336,21 +336,29 @@ void main(){
                     ch[i].addEventListener("mouseover", (c) => {
                         if (mouseIsDown){
                             let prevIndex = parseInt(e.style.color.replace("rgb(","").replace(", 0, 0)",""));
-                            console.log(prevIndex);
                             ch[prevIndex].className = ""; // reset old
- 
+                            
                             c.srcElement.className = "selected"; // set new
                             // order ensures overwriting current is allowed
+                            
+                            let currentIndex = Array.prototype.indexOf.call(ch, c.srcElement);;
 
-                            let currentIndex = -1;
-                            for (let j = 0; j < ch.length; j++){ // stupid loop. Eliminate somehow?
-                                if (ch[j] === c.srcElement){
-                                    currentIndex = j;
-                                    break;
-                                } 
-                            }
                             e.style.color = `rgb(${currentIndex}, 0, 0)`; // record new data
+                            console.log(currentIndex);
                         }
+                    });
+
+                    ch[i].addEventListener("click", (c) => {
+                        let prevIndex = parseInt(e.style.color.replace("rgb(","").replace(", 0, 0)",""));
+                        console.log(prevIndex);
+                        ch[prevIndex].className = ""; // reset old
+
+                        c.srcElement.className = "selected"; // set new
+                        // order ensures overwriting current is allowed
+
+                        let currentIndex = Array.prototype.indexOf.call(ch, c.srcElement);;
+
+                        e.style.color = `rgb(${currentIndex}, 0, 0)`; // record new data
                     });
                 }
             });
